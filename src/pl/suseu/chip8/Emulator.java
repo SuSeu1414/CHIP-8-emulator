@@ -20,7 +20,10 @@ public class Emulator {
     private int sp; // stack pointer
     private byte[] keys = new byte[16]; // HEX based keypad
 
+    private Screen screen;
+
     public Emulator() throws Exception {
+        screen = new Screen();
         initialize();
     }
 
