@@ -29,15 +29,27 @@ public class Emulator {
 
         //TODO: Load fontset
 
-        byte[] binary = loadBinary("roms/test.c8");
+        byte[] binary = loadBinary("roms/Pong.c8");
         for (int i = 0; i < binary.length; i++) {
-            System.out.println(Integer.toHexString(uint(binary[i])));
             memory[i + 512] = binary[i];
         }
 
-        emulateCycle();
-        emulateCycle();
-        emulateCycle();
+        new Thread(() -> {
+            while (true) {
+                if(soundTimer > 0)
+                    soundTimer--;
+                if(delayTimer > 0)
+                    delayTimer--;
+
+                emulateCycle();
+
+                try {
+                    Thread.sleep(60/1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
     private void emulateCycle() {
