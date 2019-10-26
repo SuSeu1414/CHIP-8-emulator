@@ -37,7 +37,8 @@ public class Emulator {
     }
 
     private void emulateCycle(){
-
+        //fetch opcode
+        opcode = (char) (memory[pc] << 8 | memory[pc + 1]);
     }
 
     private byte[] loadBinary(String filename) throws Exception {
