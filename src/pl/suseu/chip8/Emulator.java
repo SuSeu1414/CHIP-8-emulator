@@ -23,6 +23,7 @@ public class Emulator {
     private Screen screen;
 
     public Emulator() throws Exception {
+        gfx = new boolean[64 * 32];
         screen = new Screen();
         initialize();
     }
@@ -221,7 +222,8 @@ public class Emulator {
                     }
 
                     default:
-                        System.err.println("Unknown opcode: 0x" + Integer.toHexString(uint(opcode)));
+                        screen.closeWindow();
+                        System.err.println("Unknown opcode: 0x" + Integer.toHexString(uint(opcode)).toUpperCase());
                         System.exit(0);
                         break;
                 }
@@ -261,7 +263,8 @@ public class Emulator {
             }
 
             default:
-                System.err.println("Unknown opcode: 0x" + Integer.toHexString(uint(opcode)));
+                screen.closeWindow();
+                System.err.println("Unknown opcode: 0x" + Integer.toHexString(uint(opcode)).toUpperCase());
                 System.exit(0);
                 break;
         }
@@ -274,6 +277,10 @@ public class Emulator {
         int loadedBytes = in.read(bytes);
         System.out.println("Loaded " + loadedBytes + " bytes.");
         return bytes;
+    }
+
+    public boolean[] getGfx() {
+        return gfx;
     }
 
     public static void main(String[] args) throws Exception {

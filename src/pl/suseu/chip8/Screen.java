@@ -6,6 +6,9 @@ import java.awt.event.WindowListener;
 
 public class Screen extends Frame implements WindowListener {
 
+    private boolean closed = false;
+    private Emulator emulator;
+
     public Screen() {
         addWindowListener(this);
         setTitle("CHIP-8 Emulator by Szymon");
@@ -20,6 +23,22 @@ public class Screen extends Frame implements WindowListener {
         g2.fillRect(0, 0, getWidth(), getHeight());
         g2.setColor(Color.BLACK);
         g2.drawRect(40, 40, getWidth() - 80, getHeight() - 80);
+
+        int x = 0;
+        int y = 0;
+        for (int i = 0; i < emulator.getGfx().length; i++) {
+            if(closed)
+                return;
+
+            Color c = emulator.getGfx()[i] ? Color.BLACK : Color.LIGHT_GRAY;
+            drawPoint(g2, x, y, c);
+
+            x++;
+            if(x > 63) {
+                x = 0;
+                y++;
+            }
+        }
         drawPoint(g2, 1, 2, Color.BLACK);
     }
 
@@ -27,6 +46,11 @@ public class Screen extends Frame implements WindowListener {
         g2.setColor(color);
         g2.setStroke(new BasicStroke(10));
         g2.drawLine(10 * x + 45, 10 * y + 45, 10 * x + 45, 10 * y + 45);
+    }
+
+    public void closeWindow() {
+        closed = true;
+        this.dispose();
     }
 
     @Override
