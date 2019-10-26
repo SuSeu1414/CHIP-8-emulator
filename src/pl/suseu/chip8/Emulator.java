@@ -23,7 +23,6 @@ public class Emulator {
     private Screen screen;
 
     public Emulator() throws Exception {
-        gfx = new boolean[64 * 32];
         screen = new Screen();
         initialize();
     }
@@ -31,8 +30,9 @@ public class Emulator {
     private void initialize() throws Exception {
         pc = 0x200; // Program counter always starts at 0x200 (512)
 
-        //TODO: Load fontset
-
+        for (int i = 0; i < Font.getFontset().length; i++) {
+            memory[i] = Font.getFontset()[i];
+        }
         byte[] binary = loadBinary("roms/Pong.c8");
         for (int i = 0; i < binary.length; i++) {
             memory[i + 512] = binary[i];
@@ -44,6 +44,10 @@ public class Emulator {
                     soundTimer--;
                 if(delayTimer > 0)
                     delayTimer--;
+
+                for (int i = 0; i < keys.length; i++) {
+                    keys[i] = (byte) screen.getKeys().getBuffer()[i];
+                }
 
                 emulateCycle();
 
@@ -57,9 +61,6 @@ public class Emulator {
     }
 
     private void emulateCycle() {
-        //fetch opcode
-//        System.out.println(Integer.toHexString( (memory[pc] << 8) ) ); // 6100
-//        System.out.println(Integer.toHexString( (memory[pc + 1]) )); // c8
         opcode = (char) (uint(memory[pc]) << 8 | uint(memory[pc + 1]));
         System.out.println("Opcode: 0x" + Integer.toHexString(uint(opcode)));
 
@@ -111,7 +112,7 @@ public class Emulator {
 
             //0x5XY0: Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
             case 0x5000: {
-                if (V[opcode >>> 8 & 0xF] == V[opcode >>> 4])
+                if (V[opcode >>> 8 & 0xF] == V[opcode >>> 4 & 0xF])
                     pc += 4;
                 else
                     pc += 2;
@@ -249,7 +250,7 @@ public class Emulator {
 
             //0xBNNN: Jumps to the address NNN plus V0.
             case 0xB000: {
-                pc = V[0] + (opcode & 0xFFF);
+                pc = uint(V[0]) + (opcode & 0xFFF);
                 break;
             }
 
@@ -259,6 +260,158 @@ public class Emulator {
                 int rand = (new Random().nextInt(255)) & (opcode & 0xFF);
                 V[x] = (byte) (rand & 0xFF);
                 pc+=2;
+                break;
+            }
+
+            //0xDXYN: Draws a sprite at coordinate (VX, VY)
+            case 0xD000: {
+                int x = uint(V[(byte) ((opcode >>> 8) & 0xF)]);
+                int y = uint(V[(byte) ((opcode >>> 4) & 0xF)]);
+                int n = opcode & 0xF;
+
+                V[0xF] = 0;
+
+                for (int y2 = 0; y2 < n; y2++) {
+                    byte sprite = memory[I + y2];
+                    for (int x2 = 0; x2 < 8; x2++) {
+                        boolean draw = (sprite & (0x8 >>> x2)) != 0;
+                        if(!draw)
+                            continue;
+
+                        int index = (y + y2)*64 + x + x2;
+                        boolean before = gfx[index];
+                        gfx[index] ^= true;
+                        boolean after = gfx[index];
+
+                        if (before != after)
+                            V[0xF] = 1;
+                    }
+                }
+                screen.redraw();
+                pc+=2;
+                break;
+            }
+
+            //0xEX??
+            case 0xE000: {
+                int x = (byte) ((opcode >>> 8) & 0xF);
+                switch (opcode & 0xFF){
+                    //0xEX9E: Skips the next instruction if the key stored in VX is pressed.
+                    case 0x009E: {
+                        if(keys[V[x]] == 1)
+                            pc += 4;
+                        else
+                            pc+=2;
+                        break;
+                    }
+
+                    //0xEXA1: Skips the next instruction if the key stored in VX isn't pressed.
+                    case 0x00A1: {
+                        if(keys[V[x]] == 1)
+                            pc += 2;
+                        else
+                            pc+=4;
+                        break;
+                    }
+
+                    default:
+                        screen.closeWindow();
+                        System.err.println("Unknown opcode: 0x" + Integer.toHexString(uint(opcode)).toUpperCase());
+                        System.exit(0);
+                        break;
+                }
+            }
+
+            //0xFX??
+            case 0xF000: {
+                int x = (opcode >>> 8) & 0xF;
+                switch (opcode & 0xFF) {
+                    //0xFX07: Sets VX to the value of the delay timer.
+                    case 0x0007: {
+                        V[x] = (byte) (delayTimer & 0xFF);
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX0A: A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
+                    case 0x000A: {
+                        for (byte key : keys) {
+                            if (key == 1) {
+                                V[x] = key;
+                                pc += 2;
+                                break;
+                            }
+                        }
+                        //not incrementing pc to wait for key press
+                        break;
+                    }
+
+                    //0xFX15: Sets the delay timer to VX.
+                    case 0x0015: {
+                        delayTimer = uint(V[x]);
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX18: Sets the sound timer to VX.
+                    case 0x0018: {
+                        soundTimer = uint(V[x]);
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX1E: Adds VX to I.
+                    case 0x001E: {
+                        I += uint(V[x]);
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX29: Sets I to the location of the sprite for the character in VX.
+                    // Characters 0-F (in hexadecimal) are represented by a 4x5 font.
+                    case 0x0029: {
+                        I = uint(V[x]) * 5;
+                        pc+=2;
+                        break;
+                    }
+
+
+                    //0xFX33: too long to write here lol https://en.wikipedia.org/wiki/CHIP-8
+                    case 0x0033: {
+                        int vx = uint(V[x]);
+
+                        int ones = (vx % 10) & 0xFF;
+                        int tens = ((vx/10) % 10) & 0xFF;
+                        int hundreds = ((vx/100) % 10) & 0xFF;
+
+                        memory[I] = (byte) hundreds;
+                        memory[I + 1] = (byte) tens;
+                        memory[I + 2] = (byte) ones;
+
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX55: Stores V0 to VX (including VX) in memory starting at address I.
+                    // The offset from I is increased by 1 for each value written, but I itself is left unmodified.
+                    case 0x0055: {
+                        for (int i = 0; i <= x; i++) {
+                            memory[I + i] = V[i];
+                        }
+                        pc+=2;
+                        break;
+                    }
+
+                    //0xFX65: Fills V0 to VX (including VX) with values from memory starting at address I.
+                    // The offset from I is increased by 1 for each value written, but I itself is left unmodified.
+                    case 0x0065: {
+                        for (int i = 0; i <= x; i++) {
+                            V[i] = memory[I + i];
+                        }
+                        pc+=2;
+                        break;
+                    }
+                }
                 break;
             }
 

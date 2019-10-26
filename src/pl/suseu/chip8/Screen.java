@@ -1,13 +1,17 @@
 package pl.suseu.chip8;
 
 import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 
-public class Screen extends Frame implements WindowListener {
+public class Screen extends Frame implements WindowListener, KeyListener {
 
     private boolean closed = false;
+    private boolean redraw = true;
     private Emulator emulator;
+    private Keys keys = new Keys();
 
     public Screen() {
         addWindowListener(this);
@@ -18,6 +22,12 @@ public class Screen extends Frame implements WindowListener {
 
     @Override
     public void paint(Graphics g) {
+        if (!redraw) {
+            return;
+        }
+        System.out.println("Drawing!");
+        redraw = false;
+
         Graphics2D g2 = (Graphics2D) g;
         g2.setColor(Color.LIGHT_GRAY);
         g2.fillRect(0, 0, getWidth(), getHeight());
@@ -39,7 +49,6 @@ public class Screen extends Frame implements WindowListener {
                 y++;
             }
         }
-        drawPoint(g2, 1, 2, Color.BLACK);
     }
 
     public void drawPoint(Graphics2D g2, int x, int y, Color color) {
@@ -55,7 +64,6 @@ public class Screen extends Frame implements WindowListener {
 
     @Override
     public void windowOpened(WindowEvent e) {
-
     }
 
     @Override
@@ -86,5 +94,28 @@ public class Screen extends Frame implements WindowListener {
     @Override
     public void windowDeactivated(WindowEvent e) {
 
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        keys.keyPressed(e.getKeyCode());
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        keys.keyReleased(e.getKeyCode());
+    }
+
+    public Keys getKeys() {
+        return keys;
+    }
+
+    public void redraw() {
+        this.redraw = true;
     }
 }
