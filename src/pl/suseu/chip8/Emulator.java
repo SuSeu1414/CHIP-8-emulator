@@ -4,6 +4,7 @@ import processing.core.PApplet;
 
 import java.io.DataInputStream;
 import java.io.FileInputStream;
+import java.util.Arrays;
 import java.util.Random;
 
 import static pl.suseu.chip8.UnsignedUtils.uint;
@@ -45,13 +46,14 @@ public class Emulator {
         for (int i = 0; i < Font.getFontset().length; i++) {
             memory[i] = Font.getFontset()[i];
         }
-        byte[] binary = loadBinary("roms/Pong.c8");
+        byte[] binary = loadBinary("roms/space_invaders.ch8");
         for (int i = 0; i < binary.length; i++) {
             memory[i + 512] = binary[i];
         }
 
         new Thread(() -> {
             while (true) {
+                long start = System.currentTimeMillis();
                 if (soundTimer > 0)
                     soundTimer--;
                 if (delayTimer > 0)
@@ -62,9 +64,11 @@ public class Emulator {
                 }
 
                 emulateCycle();
-
+                long stop = System.currentTimeMillis();
+//                System.out.println("Cycle took " + (stop - start) + "ms. Now waiting...");
                 try {
-                    Thread.sleep(60 / 1000);
+//                    Thread.sleep(1);
+                    Thread.sleep(1000 / 60);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -74,13 +78,16 @@ public class Emulator {
 
     private void emulateCycle() {
         opcode = (char) (uint(memory[pc]) << 8 | uint(memory[pc + 1]));
-        //System.out.println("Opcode: 0x" + Integer.toHexString(uint(opcode)));
+//        System.out.println("memory[pc] = " + memory[pc]);
+//        System.out.println("memory[pc+1] = " + memory[pc + 1]);
+//        System.out.println("Opcode: 0x" + Integer.toHexString(uint(opcode)));
 
         switch (opcode & 0xF000) {
             case 0x000: {
                 switch (opcode & 0x00F) {
                     case 0x000: // 0x00E0: Clears the screen
-                        //TODO: Clear screen
+                        Arrays.fill(gfx, false);
+                        screen.redraw(gfx.clone());
                         pc += 2;
                         break;
                     case 0x00E: //0x000E: Returns from subroutine
@@ -106,9 +113,10 @@ public class Emulator {
                 break;
             }
 
+            //3f01
             // 0x3XNN: Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
             case 0x3000: {
-                if (V[opcode >>> 8 & 0xF] == (opcode & 0xFF))
+                if (uint(V[opcode >>> 8 & 0xF]) == (opcode & 0xFF))
                     pc += 4;
                 else
                     pc += 2;
@@ -121,6 +129,7 @@ public class Emulator {
                     pc += 4;
                 else
                     pc += 2;
+                break;
             }
 
             //0x5XY0: Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
@@ -209,7 +218,7 @@ public class Emulator {
                     //0x8XY6: Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
                     case 0x0006: {
                         V[0xF] = (byte) (V[x] & 0b1);
-                        V[x] = (byte) (V[x] >>> 1 & 0xFF);
+                        V[x] = (byte) (uint(V[x]) >>> 1 & 0xFF);
                         pc += 2;
                         break;
                     }
@@ -229,7 +238,7 @@ public class Emulator {
 
                     //0x8XYE: Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
                     case 0x000E: {
-                        V[0xF] = (byte) (V[x] & 0x8000); // 0x8000 = 0b1000000000000000
+                        V[0xF] = (byte) (((uint(V[x]) & 0xFF) & 0b10000000) >>> 7); // 0x8000 = 0b1000000000000000
                         V[x] = (byte) (V[x] << 1 & 0xFF);
                         pc += 2;
                         break;
@@ -241,6 +250,7 @@ public class Emulator {
                         System.exit(0);
                         break;
                 }
+                break;
             }
 
             //0x9XY0: Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is a jump to skip a code block)
@@ -308,6 +318,7 @@ public class Emulator {
                 break;
             }
 
+
             //0xEX??
             case 0xE000: {
                 int x = (byte) ((opcode >>> 8) & 0xF);
@@ -336,6 +347,7 @@ public class Emulator {
                         System.exit(0);
                         break;
                 }
+                break;
             }
 
             //0xFX??
