@@ -1,47 +1,48 @@
 package pl.suseu.chip8;
 
-import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
+import processing.core.PApplet;
+import processing.event.KeyEvent;
 
-public class Screen extends Frame implements WindowListener, KeyListener {
+import java.util.Arrays;
+
+public class Screen extends PApplet {
 
     private boolean closed = false;
     private boolean redraw = true;
     private Emulator emulator;
     private Keys keys = new Keys();
+    private boolean[] gfx = new boolean[64 * 32];
 
-    public Screen() {
-        addWindowListener(this);
-        setTitle("CHIP-8 Emulator by Szymon");
-        setSize(640 + 80, 320 + 80);
-        setVisible(true);
+    @Override
+    public void settings() {
+        size(640 + 80, 320 + 80);
+        try {
+            new Emulator(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
-    public void paint(Graphics g) {
+    public void draw() {
         if (!redraw) {
             return;
         }
-        System.out.println("Drawing!");
         redraw = false;
 
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setColor(Color.LIGHT_GRAY);
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        g2.setColor(Color.BLACK);
-        g2.drawRect(40, 40, getWidth() - 80, getHeight() - 80);
+        background(200);
+        stroke(0);
+        strokeWeight(2);
+        rect(40, 40, width - 80 + 1, height - 80 + 1);
 
         int x = 0;
         int y = 0;
-        for (int i = 0; i < emulator.getGfx().length; i++) {
+        for (int i = 0; i < gfx.length; i++) {
             if(closed)
                 return;
 
-            Color c = emulator.getGfx()[i] ? Color.BLACK : Color.LIGHT_GRAY;
-            drawPoint(g2, x, y, c);
+            int color = gfx[i] ? 0 : 200;
+            drawPoint(x, y, color);
 
             x++;
             if(x > 63) {
@@ -51,10 +52,11 @@ public class Screen extends Frame implements WindowListener, KeyListener {
         }
     }
 
-    public void drawPoint(Graphics2D g2, int x, int y, Color color) {
-        g2.setColor(color);
-        g2.setStroke(new BasicStroke(10));
-        g2.drawLine(10 * x + 45, 10 * y + 45, 10 * x + 45, 10 * y + 45);
+
+    public void drawPoint(int x, int y, int color) {
+        strokeWeight(10);
+        stroke(color);
+        rect(10 * x + 45, 10 * y + 45, 1, 1);
     }
 
     public void closeWindow() {
@@ -62,44 +64,6 @@ public class Screen extends Frame implements WindowListener, KeyListener {
         this.dispose();
     }
 
-    @Override
-    public void windowOpened(WindowEvent e) {
-    }
-
-    @Override
-    public void windowClosing(WindowEvent e) {
-        this.dispose();
-    }
-
-    @Override
-    public void windowClosed(WindowEvent e) {
-
-    }
-
-    @Override
-    public void windowIconified(WindowEvent e) {
-
-    }
-
-    @Override
-    public void windowDeiconified(WindowEvent e) {
-
-    }
-
-    @Override
-    public void windowActivated(WindowEvent e) {
-
-    }
-
-    @Override
-    public void windowDeactivated(WindowEvent e) {
-
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-
-    }
 
     @Override
     public void keyPressed(KeyEvent e) {
@@ -115,7 +79,8 @@ public class Screen extends Frame implements WindowListener, KeyListener {
         return keys;
     }
 
-    public void redraw() {
+    public void redraw(boolean[] gfx) {
+        this.gfx = gfx;
         this.redraw = true;
     }
 }

@@ -1,5 +1,7 @@
 package pl.suseu.chip8;
 
+import processing.core.PApplet;
+
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.util.Random;
@@ -22,8 +24,18 @@ public class Emulator {
 
     private Screen screen;
 
-    public Emulator() throws Exception {
-        screen = new Screen();
+    public Emulator(Screen screen) throws Exception {
+        this.screen = screen;
+//        new Thread(() -> {
+//            try {
+//                Thread.sleep(2000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            gfx[2] = true;
+//            screen.redraw(gfx.clone());
+//        }).start();
+
         initialize();
     }
 
@@ -40,9 +52,9 @@ public class Emulator {
 
         new Thread(() -> {
             while (true) {
-                if(soundTimer > 0)
+                if (soundTimer > 0)
                     soundTimer--;
-                if(delayTimer > 0)
+                if (delayTimer > 0)
                     delayTimer--;
 
                 for (int i = 0; i < keys.length; i++) {
@@ -52,7 +64,7 @@ public class Emulator {
                 emulateCycle();
 
                 try {
-                    Thread.sleep(60/1000);
+                    Thread.sleep(60 / 1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -62,13 +74,14 @@ public class Emulator {
 
     private void emulateCycle() {
         opcode = (char) (uint(memory[pc]) << 8 | uint(memory[pc + 1]));
-        System.out.println("Opcode: 0x" + Integer.toHexString(uint(opcode)));
+        //System.out.println("Opcode: 0x" + Integer.toHexString(uint(opcode)));
 
         switch (opcode & 0xF000) {
             case 0x000: {
                 switch (opcode & 0x00F) {
                     case 0x000: // 0x00E0: Clears the screen
                         //TODO: Clear screen
+                        pc += 2;
                         break;
                     case 0x00E: //0x000E: Returns from subroutine
                         pc = stack[sp];
@@ -259,7 +272,7 @@ public class Emulator {
                 int x = (opcode >>> 8) & 0xF;
                 int rand = (new Random().nextInt(255)) & (opcode & 0xFF);
                 V[x] = (byte) (rand & 0xFF);
-                pc+=2;
+                pc += 2;
                 break;
             }
 
@@ -274,43 +287,46 @@ public class Emulator {
                 for (int y2 = 0; y2 < n; y2++) {
                     byte sprite = memory[I + y2];
                     for (int x2 = 0; x2 < 8; x2++) {
-                        boolean draw = (sprite & (0x8 >>> x2)) != 0;
-                        if(!draw)
+                        boolean draw = (uint(sprite) & (0x80 >>> x2)) != 0;
+                        if (!draw)
                             continue;
 
-                        int index = (y + y2)*64 + x + x2;
+                        int index = (y + y2) * 64 + x + x2;
+                        if(index >= 2048)
+                            break;
                         boolean before = gfx[index];
                         gfx[index] ^= true;
                         boolean after = gfx[index];
 
-                        if (before != after)
+                        if (before != after) {
                             V[0xF] = 1;
+                        }
                     }
                 }
-                screen.redraw();
-                pc+=2;
+                screen.redraw(gfx.clone());
+                pc += 2;
                 break;
             }
 
             //0xEX??
             case 0xE000: {
                 int x = (byte) ((opcode >>> 8) & 0xF);
-                switch (opcode & 0xFF){
+                switch (opcode & 0xFF) {
                     //0xEX9E: Skips the next instruction if the key stored in VX is pressed.
                     case 0x009E: {
-                        if(keys[V[x]] == 1)
+                        if (keys[V[x]] == 1)
                             pc += 4;
                         else
-                            pc+=2;
+                            pc += 2;
                         break;
                     }
 
                     //0xEXA1: Skips the next instruction if the key stored in VX isn't pressed.
                     case 0x00A1: {
-                        if(keys[V[x]] == 1)
+                        if (keys[V[x]] == 1)
                             pc += 2;
                         else
-                            pc+=4;
+                            pc += 4;
                         break;
                     }
 
@@ -329,7 +345,7 @@ public class Emulator {
                     //0xFX07: Sets VX to the value of the delay timer.
                     case 0x0007: {
                         V[x] = (byte) (delayTimer & 0xFF);
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
@@ -349,21 +365,21 @@ public class Emulator {
                     //0xFX15: Sets the delay timer to VX.
                     case 0x0015: {
                         delayTimer = uint(V[x]);
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
                     //0xFX18: Sets the sound timer to VX.
                     case 0x0018: {
                         soundTimer = uint(V[x]);
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
                     //0xFX1E: Adds VX to I.
                     case 0x001E: {
                         I += uint(V[x]);
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
@@ -371,7 +387,7 @@ public class Emulator {
                     // Characters 0-F (in hexadecimal) are represented by a 4x5 font.
                     case 0x0029: {
                         I = uint(V[x]) * 5;
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
@@ -381,14 +397,14 @@ public class Emulator {
                         int vx = uint(V[x]);
 
                         int ones = (vx % 10) & 0xFF;
-                        int tens = ((vx/10) % 10) & 0xFF;
-                        int hundreds = ((vx/100) % 10) & 0xFF;
+                        int tens = ((vx / 10) % 10) & 0xFF;
+                        int hundreds = ((vx / 100) % 10) & 0xFF;
 
                         memory[I] = (byte) hundreds;
                         memory[I + 1] = (byte) tens;
                         memory[I + 2] = (byte) ones;
 
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
@@ -398,7 +414,7 @@ public class Emulator {
                         for (int i = 0; i <= x; i++) {
                             memory[I + i] = V[i];
                         }
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
 
@@ -408,7 +424,7 @@ public class Emulator {
                         for (int i = 0; i <= x; i++) {
                             V[i] = memory[I + i];
                         }
-                        pc+=2;
+                        pc += 2;
                         break;
                     }
                 }
@@ -432,11 +448,7 @@ public class Emulator {
         return bytes;
     }
 
-    public boolean[] getGfx() {
-        return gfx;
-    }
-
     public static void main(String[] args) throws Exception {
-        new Emulator();
+        PApplet.main("pl.suseu.chip8.Screen");
     }
 }
